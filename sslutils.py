@@ -82,6 +82,29 @@ def write_files(w_object,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=Non
     if isinstance(w_object, crypto.PKey):   
        write_private_key(w_object,filetype, cipher, passphrase, outfile)
 
+def createCertificate(req, (issuerCert, issuerKey), serial, (notBefore, notAfter), digest="md5"):
+    """
+    Generate a certificate given a certificate request.
+    Arguments: req        - Certificate reqeust to use
+               issuerCert - The certificate of the issuer
+               issuerKey  - The private key of the issuer
+               serial     - Serial number for the certificate
+               notBefore  - Timestamp (relative to now) when the certificate
+                            starts being valid
+               notAfter   - Timestamp (relative to now) when the certificate
+                            stops being valid
+               digest     - Digest method to use for signing, default is md5
+    Returns:   The signed certificate in an X509 object
+    """
+    cert = crypto.X509()
+    cert.set_serial_number(serial)
+    cert.gmtime_adj_notBefore(notBefore)
+    cert.gmtime_adj_notAfter(notAfter)
+    cert.set_issuer(issuerCert.get_subject())
+    cert.set_subject(req.get_subject())
+    cert.set_pubkey(req.get_pubkey())
+    cert.sign(issuerKey, digest)
+    return cert
 
 def write_jks(key, cert, keystorepass='changeme', outfile='/tmp/out.jks'):
    """
@@ -92,7 +115,7 @@ def write_jks(key, cert, keystorepass='changeme', outfile='/tmp/out.jks'):
    try:
      cn = dict(crypto.X509Name(cert.get_subject()).get_components())['CN']
    except:
-     print "Warning: could not get CN from certificate, setting CN=myhost.mydomain"
+     print("Warning: could not get CN from certificate, setting CN=myhost.mydomain")
      cn = "myhost.mydomain"
 
    asn1key  = crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_ASN1, key)
