@@ -42,31 +42,32 @@ def create_csr(cn, key, altnames=[]):
     L  = 'Bangalroe'
     O  = 'ACME Enterprises'
     OU = 'Support'
-   
-    if 'DNS:{0}'.format(cn) in altnames:
-      altname_str = ','.join(altnames)
+
+    if cn in altnames:
+        sans = [ 'DNS:{0}'.format(n) for n in altnames ]
     else:
-      altnames.append('DNS:{0}'.format(cn))
-      altname_str = ','.join(altnames)
+        altnames.append(cn)
+        sans = [ 'DNS:{0}'.format(n) for n in altnames ]
+    sanstr = ', '.join(sans)
     
     base_constraints = ([
-                 crypto.X509Extension("keyUsage", False, "Digital Signature, Non Repudiation, Key Encipherment"),
-                 crypto.X509Extension("basicConstraints", False, "CA:FALSE"),
-                 crypto.X509Extension("subjectAltName", False, altname_str)
+                 crypto.X509Extension(b"keyUsage", False, b"Digital Signature, Non Repudiation, Key Encipherment"),
+                 crypto.X509Extension(b"basicConstraints", False, b"CA:FALSE"),
+                 crypto.X509Extension(b"subjectAltName", False, str.encode(sanstr))
                  ])
     req = crypto.X509Req()
     req.add_extensions(base_constraints)
     req.sign(key,"sha256")
     return req
 
-def write_private_key(key,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=None,outfile='/tmp/out.pem'):
+def write_private_key(key,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=None,outfile='/tmp/out.key'):
     if passphrase and filetype != crypto.FILETYPE_PEM:
       raise Exception(
         "passphrase is only supported for PEM encoded private keys")
 
     open(outfile, "a+").write(crypto.dump_privatekey(filetype, key, cipher, passphrase))
 
-def write_csr(req,filetype=crypto.FILETYPE_PEM,outfile='/tmp/out.pem'):
+def write_csr(req,filetype=crypto.FILETYPE_PEM,outfile='/tmp/out.csr'):
     open(outfile, "a+").write(crypto.dump_certificate_request(filetype, req))
 
 def write_files(w_object,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=None,outfile='/tmp/out.pem'):
@@ -82,7 +83,7 @@ def write_files(w_object,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=Non
     if isinstance(w_object, crypto.PKey):   
        write_private_key(w_object,filetype, cipher, passphrase, outfile)
 
-def createCertificate(req, (issuerCert, issuerKey), serial, (notBefore, notAfter), digest="md5"):
+def signCertificate(req, (issuerCert, issuerKey), serial, (notBefore, notAfter), digest="sha256"):
     """
     Generate a certificate given a certificate request.
     Arguments: req        - Certificate reqeust to use
@@ -93,7 +94,7 @@ def createCertificate(req, (issuerCert, issuerKey), serial, (notBefore, notAfter
                             starts being valid
                notAfter   - Timestamp (relative to now) when the certificate
                             stops being valid
-               digest     - Digest method to use for signing, default is md5
+               digest     - Digest method to use for signing, default is sha256
     Returns:   The signed certificate in an X509 object
     """
     cert = crypto.X509()
@@ -117,10 +118,10 @@ def write_jks(key, cert, keystorepass='changeme', outfile='/tmp/out.jks'):
    except:
      print("Warning: could not get CN from certificate, setting CN=myhost.mydomain")
      cn = "myhost.mydomain"
-
    asn1key  = crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_ASN1, key)
    asn1cert = crypto.dump_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
    jks_alias = cn.lower()
    pke = jks.PrivateKeyEntry.new(jks_alias, [asn1cert], asn1key, 'rsa_raw')
    keystore = jks.KeyStore.new('jks', [pke])
    keystore.save(outfile, keystorepass)
+
