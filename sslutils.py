@@ -59,6 +59,7 @@ def create_csr(cn, key, altnames=[]):
     for(k,v) in subject_values.items():
         setattr(subject,k,v)
     req.add_extensions(base_constraints)
+    req.set_pubkey(key)
     req.sign(key,"sha256")
     return req
 
@@ -67,10 +68,10 @@ def write_private_key(key,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=No
       raise Exception(
         "passphrase is only supported for PEM encoded private keys")
 
-    open(outfile, "a+").write(crypto.dump_privatekey(filetype, key, cipher, passphrase))
+    open(outfile, "a+").write(crypto.dump_privatekey(filetype, key, cipher, passphrase).decode())
 
 def write_csr(req,filetype=crypto.FILETYPE_PEM,outfile='/tmp/out.csr'):
-    open(outfile, "a+").write(crypto.dump_certificate_request(filetype, req))
+    open(outfile, "a+").write(crypto.dump_certificate_request(filetype, req).decode())
 
 def write_files(w_object,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=None,outfile='/tmp/out.pem'):
    
