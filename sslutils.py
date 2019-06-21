@@ -25,9 +25,6 @@ def generate_private_key(keytype=crypto.TYPE_RSA, bits=2048):
 
     :return: OpenSSL.crypto.PKey instance
     """
-    # declare key encryption types
-    TYPE_DSA = crypto.TYPE_DSA
-    TYPE_RSA = crypto.TYPE_RSA
     # Create key
     key = crypto.PKey()
     key.generate_key(keytype, bits)
@@ -37,12 +34,14 @@ def create_csr(cn, key, altnames=[]):
     """
     TODO: Read these attributtes from a file, like opensl.cnf
     """
-    C  = 'IN'
-    ST = 'Karnataka'
-    L  = 'Bangalroe'
-    O  = 'ACME Enterprises'
-    OU = 'Support'
-
+    subject_values = {
+        'C': 'IN',
+        'ST': 'Karnataka',
+        'L': 'Bangalroe',
+        'O': 'ACME Enterprises',
+        'OU': 'Ops',
+        'CN': cn
+    }
     if cn in altnames:
         sans = [ 'DNS:{0}'.format(n) for n in altnames ]
     else:
@@ -56,6 +55,9 @@ def create_csr(cn, key, altnames=[]):
                  crypto.X509Extension(b"subjectAltName", False, str.encode(sanstr))
                  ])
     req = crypto.X509Req()
+    subject = req.get_subject()
+    for(k,v) in subject_values.items():
+        setattr(subject,k,v)
     req.add_extensions(base_constraints)
     req.sign(key,"sha256")
     return req
@@ -71,11 +73,7 @@ def write_csr(req,filetype=crypto.FILETYPE_PEM,outfile='/tmp/out.csr'):
     open(outfile, "a+").write(crypto.dump_certificate_request(filetype, req))
 
 def write_files(w_object,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=None,outfile='/tmp/out.pem'):
-    # Declare encoding for key, req and cert files
-    FILETYPE_ASN1 = crypto.FILETYPE_ASN1
-    FILETYPE_PEM  = crypto.FILETYPE_PEM
-    FILETYPE_TEXT = crypto.FILETYPE_TEXT
-    
+   
     # Check what object we are passed to write
     if isinstance(w_object, crypto.X509Req):
        write_csr(w_object,filetype,outfile)
@@ -83,7 +81,7 @@ def write_files(w_object,filetype=crypto.FILETYPE_PEM,cipher=None,passphrase=Non
     if isinstance(w_object, crypto.PKey):   
        write_private_key(w_object,filetype, cipher, passphrase, outfile)
 
-def signCertificate(req, (issuerCert, issuerKey), serial, (notBefore, notAfter), digest="sha256"):
+def signCertificate(req, issuerCert, issuerKey, serial, notBefore, notAfter, digest="sha256"):
     """
     Generate a certificate given a certificate request.
     Arguments: req        - Certificate reqeust to use
@@ -118,8 +116,8 @@ def write_jks(key, cert, keystorepass='changeme', outfile='/tmp/out.jks'):
    except:
      print("Warning: could not get CN from certificate, setting CN=myhost.mydomain")
      cn = "myhost.mydomain"
-   asn1key  = crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_ASN1, key)
-   asn1cert = crypto.dump_certificate(OpenSSL.crypto.FILETYPE_ASN1, cert)
+   asn1key  = crypto.dump_privatekey(crypto.FILETYPE_ASN1, key)
+   asn1cert = crypto.dump_certificate(crypto.FILETYPE_ASN1, cert)
    jks_alias = cn.lower()
    pke = jks.PrivateKeyEntry.new(jks_alias, [asn1cert], asn1key, 'rsa_raw')
    keystore = jks.KeyStore.new('jks', [pke])
